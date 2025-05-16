@@ -105,7 +105,7 @@ const wchar_t *help_text_zh_CN[] = {
     L"选项:",
     L"  [路径]            指定要显示树状结构的目录。默认为当前目录。",
     L"  -L <层数>         限制目录树的显示层数。例如: -L 2",
-    L"  /F, -f            (文本模式) 显示每个文件夹中文件的名称。",
+    L"  /F, -f            显示每个文件夹中文件的名称 (适用于所有输出模式)。", // 修改了描述
     L"  /A, --ascii       (文本模式) 使用 ASCII 字符代替扩展字符绘制树状线条。",
     L"  -c                (文本模式) 为输出着色以区分不同类型的文件/目录 (仅控制台)。",
     L"  -a                显示隐藏文件和目录 (包括系统文件)。",
@@ -141,7 +141,7 @@ const wchar_t *help_text_en_US[] = { // 英文帮助文本
     L"  [PATH]            Specify the directory for which to display the tree.",
     L"                    Defaults to the current directory.",
     L"  -L <level>        Descend only <level> directories deep. Example: -L 2",
-    L"  /F, -f            (Text mode) Display the names of the files in each folder.",
+    L"  /F, -f            Display the names of the files in each folder (applies to all output modes).", // Modified description
     L"  /A, --ascii       (Text mode) Use ASCII characters instead of extended characters for tree lines.",
     L"  -c                (Text mode) Colorize the output for different file/directory types (console only).",
     L"  -a                Show hidden files and directories (including system files).",
@@ -856,7 +856,6 @@ void generate_json_tree(const wchar_t *root_path, TreeOptions *opts, Counts *glo
     fwprintf(out, L"[\n"); // JSON 数组开始
 
     wchar_t indent_str[MAX_PATH_LEN] = L"  "; // 根对象的初始缩进
-    // global_counts 由 recursive_json_builder 更新
     recursive_json_builder(root_path, 1, opts, global_counts, out, true, indent_str);
 
     fwprintf(out, L"\n]\n"); // JSON 数组结束
@@ -873,15 +872,13 @@ unsigned long long recursive_json_builder(
     bool is_first_sibling,           // 当前项是否为其父目录 "contents" 数组中的第一个元素
     wchar_t *indent_str)             // 当前 JSON 对象的缩进字符串
 {
-
-    // 检查是否超出最大层数限制 (根目录 level=1 总是处理)
     if (opts->max_level != -1 && level > opts->max_level && level > 1)
     {
         return 0;
     }
 
     WIN32_FIND_DATAW current_find_data;
-    HANDLE hCurrentFind = FindFirstFileW(current_path_abs, &current_find_data); // 获取当前目录自身的信息
+    HANDLE hCurrentFind = FindFirstFileW(current_path_abs, &current_find_data);
 
     if (hCurrentFind == INVALID_HANDLE_VALUE)
     {
@@ -889,33 +886,28 @@ unsigned long long recursive_json_builder(
         return 0;
     }
 
-    // 如果不是父 "contents" 数组中的第一个元素，则在前面添加逗号和换行
     if (!is_first_sibling)
     {
         fwprintf(out, L",\n");
     }
 
-    fwprintf(out, L"%ls{", indent_str);                    // 对象开始
-    wchar_t temp_name_buf[MAX_PATH_LEN * ESCAPE_BUF_MULT]; // 用于转义名称的缓冲区
+    fwprintf(out, L"%ls{", indent_str);
+    wchar_t temp_name_buf[MAX_PATH_LEN * ESCAPE_BUF_MULT];
 
-    // 提取目录名
     const wchar_t *name_ptr = wcsrchr(current_path_abs, L'\\');
     if (!name_ptr)
         name_ptr = wcsrchr(current_path_abs, L'/');
     name_ptr = (name_ptr && *(name_ptr + 1) != L'\0') ? name_ptr + 1 : current_path_abs;
 
-    // 特殊处理根路径名 (例如 "C:\" 会被 wcsrchr 截断)
     wchar_t adjusted_name[MAX_PATH_LEN];
     wcscpy(adjusted_name, name_ptr);
     if (wcslen(adjusted_name) == 0 && wcslen(current_path_abs) > 0)
-    { // 如果名称为空但路径不为空 (例如 "C:\")
+    {
         wcsncpy(adjusted_name, current_path_abs, MAX_PATH_LEN - 1);
         adjusted_name[MAX_PATH_LEN - 1] = L'\0';
-        // 移除末尾的斜杠 (如果存在且不是根目录 "C:\")
         size_t len = wcslen(adjusted_name);
         if (len > 1 && (adjusted_name[len - 1] == L'\\' || adjusted_name[len - 1] == L'/'))
         {
-            // 避免将 "C:\" 变成 "C:"
             if (!(len == 3 && adjusted_name[1] == L':'))
             {
                 adjusted_name[len - 1] = L'\0';
@@ -927,7 +919,6 @@ unsigned long long recursive_json_builder(
     fwprintf(out, L"\n%ls  \"type\": \"directory\",", indent_str);
     fwprintf(out, L"\n%ls  \"name\": \"%ls\"", indent_str, temp_name_buf);
 
-    // 添加属性信息
     if (opts->show_attributes)
     {
         wchar_t attr_str[ATTR_STR_LEN];
@@ -936,22 +927,22 @@ unsigned long long recursive_json_builder(
         fwprintf(out, L",\n%ls  \"attributes\": \"%ls\"", indent_str, temp_name_buf);
     }
 
-    FindClose(hCurrentFind); // 关闭当前目录的查找句柄
+    FindClose(hCurrentFind);
 
-    // 如果是根目录且需要报告，则初始化局部计数器 (JSON中报告是每个目录的)
-    if (level == 1 && !opts->no_report)
-    {
-        Counts local_counts = {0, 0}; // 这个局部计数器似乎没有被正确使用来报告根目录下的直接子项
-                                      // global_counts 会累加所有子项
-        local_counts.dir_count = 0;   // 应该在遍历子项时更新这个
+    Counts content_counts = {0, 0}; // 用于当前目录 "report" 字段的计数
+    // global_counts->dir_count 在这里由调用者 (上一级或 generate_json_tree) 增加，或在此处 level==1 时增加
+    // 为了与 XML 和 TEXT 模式的计数方式统一，我们让递归函数自身在遇到目录时增加 global_counts->dir_count
+    // 对于根目录 (level 1)，它本身就是一个目录
+    if (level == 1)
+    { // 如果是正在处理的根目录对象
+      // global_counts->dir_count++; // 统计根目录本身 - 移到循环外，确保只加一次
     }
 
     WIN32_FIND_DATAW find_data_content;
     HANDLE h_find_content = INVALID_HANDLE_VALUE;
     wchar_t search_path[MAX_PATH_LEN];
-    unsigned long long current_directory_content_size = 0; // 当前目录内容的累积大小
+    unsigned long long current_directory_content_size = 0;
 
-    // 构建搜索其内容的路径
     wcscpy(search_path, current_path_abs);
     if (search_path[wcslen(search_path) - 1] != L'\\' && search_path[wcslen(search_path) - 1] != L'/')
     {
@@ -961,18 +952,11 @@ unsigned long long recursive_json_builder(
 
     h_find_content = FindFirstFileW(search_path, &find_data_content);
 
-    // 如果无法打开目录内容进行查找 (不是因为文件未找到)
-    if (h_find_content == INVALID_HANDLE_VALUE && GetLastError() != ERROR_FILE_NOT_FOUND && GetLastError() != ERROR_PATH_NOT_FOUND)
-    {
-        // 此处可以添加错误处理或日志记录
-    }
-
-    DirEntry *entries = NULL; // 存储子条目的数组
+    DirEntry *entries = NULL;
     size_t entry_count = 0;
     size_t capacity = 0;
-    Counts content_counts = {0, 0}; // 用于当前目录内容的计数 (用于 "report" 字段)
 
-    if (h_find_content != INVALID_HANDLE_VALUE) // 如果成功开始查找内容
+    if (h_find_content != INVALID_HANDLE_VALUE)
     {
         do
         {
@@ -990,6 +974,12 @@ unsigned long long recursive_json_builder(
             if (opts->include_pattern[0] != L'\0' && !wildcard_match(find_data_content.cFileName, opts->include_pattern, opts->ignore_case_filter))
                 continue;
 
+            // 如果是文件且不要求显示文件 (受 -f 参数控制)
+            if (!is_dir && !opts->list_files)
+            {
+                continue;
+            }
+
             if (entry_count >= capacity)
             {
                 capacity = (capacity == 0) ? 16 : capacity * 2;
@@ -999,8 +989,8 @@ unsigned long long recursive_json_builder(
                     fwprintf(stderr, L"JSON: 目录条目内存分配失败。\n");
                     if (entries)
                         free(entries);
-                    entries = NULL; // 防止悬空指针
-                    break;          // 退出循环
+                    entries = NULL;
+                    break;
                 }
                 entries = new_entries;
             }
@@ -1013,34 +1003,35 @@ unsigned long long recursive_json_builder(
         FindClose(h_find_content);
     }
 
-    // 对收集到的子条目进行排序
     if (entry_count > 0)
     {
         qsort(entries, entry_count, sizeof(DirEntry), compare_dir_entries);
     }
 
-    // 判断是否可以有 "contents" 数组 (即未达到最大层级限制)
     bool can_have_contents = (opts->max_level == -1 || level < opts->max_level);
 
-    // 如果有子条目，或者即使没有子条目但可以有内容 (例如空目录且未达层级限制)
-    // 对于根目录 (level 1)，即使没有子项，也应该输出空的 "contents": []
-    if (entry_count > 0 || (can_have_contents && level == 1))
+    if (entry_count > 0 || (can_have_contents && level == 1 && opts->list_files) || (can_have_contents && level == 1 && !opts->list_files && entry_count == 0))
     {
-        fwprintf(out, L",\n%ls  \"contents\": [", indent_str); // "contents" 数组开始
+        // 修正逻辑: 总是为目录输出 "contents" 数组，即使它是空的 (除非达到 max_level 且该目录不应再展开其子项)
+        // 如果 list_files 为 false，空的 "contents" 数组是合适的。
+        // 如果 entry_count > 0 (意味着有子目录或文件被列出)
+        // 或者 (是根目录 level 1 且可以有内容) -> 这样空目录也会有 "contents": []
+        fwprintf(out, L",\n%ls  \"contents\": [", indent_str);
         wchar_t child_indent_str[MAX_PATH_LEN];
-        swprintf(child_indent_str, MAX_PATH_LEN, L"%ls  ", indent_str); // 子项的缩进
-        bool first_child = true;                                        // 标记是否为 "contents" 数组中的第一个元素
+        swprintf(child_indent_str, MAX_PATH_LEN, L"%ls  ", indent_str);
+        bool first_child = true;
 
         for (size_t i = 0; i < entry_count; ++i)
         {
             if (entries[i].is_directory)
             {
-                // 如果已达到最大层级，则仅输出目录信息，不递归
+                global_counts->dir_count++; // 统计子目录
+                content_counts.dir_count++; // 统计当前目录的子目录数
                 if (opts->max_level != -1 && level >= opts->max_level)
                 {
                     if (!first_child)
                         fwprintf(out, L",\n");
-                    fwprintf(out, L"\n%ls  {", child_indent_str); // 子目录对象开始
+                    fwprintf(out, L"\n%ls  {", child_indent_str);
                     escape_json_string_to_buffer(entries[i].name, temp_name_buf, sizeof(temp_name_buf) / sizeof(wchar_t));
                     fwprintf(out, L"\n%ls    \"type\": \"directory\",", child_indent_str);
                     fwprintf(out, L"\n%ls    \"name\": \"%ls\"", child_indent_str, temp_name_buf);
@@ -1052,15 +1043,13 @@ unsigned long long recursive_json_builder(
                         fwprintf(out, L",\n%ls    \"attributes\": \"%ls\"", child_indent_str, temp_name_buf);
                     }
                     if (opts->show_size)
-                    { // 对于未展开的目录，大小通常显示为0或未知
+                    {
                         fwprintf(out, L",\n%ls    \"size\": 0", child_indent_str);
                     }
-                    fwprintf(out, L"\n%ls  }", child_indent_str); // 子目录对象结束
+                    fwprintf(out, L"\n%ls  }", child_indent_str);
                     first_child = false;
-                    global_counts->dir_count++; // 仍然计入全局目录数
-                    content_counts.dir_count++; // 也计入当前目录的子目录数
                 }
-                else // 未达到最大层级，递归处理子目录
+                else
                 {
                     wchar_t child_path[MAX_PATH_LEN];
                     wcscpy(child_path, current_path_abs);
@@ -1069,27 +1058,25 @@ unsigned long long recursive_json_builder(
                         wcscat(child_path, L"\\");
                     }
                     wcscat(child_path, entries[i].name);
-                    global_counts->dir_count++; // 全局目录计数增加
-                    content_counts.dir_count++; // 当前目录的子目录计数增加
                     unsigned long long subdir_size = recursive_json_builder(child_path, level + 1, opts, global_counts, out, first_child, child_indent_str);
-                    current_directory_content_size += subdir_size; // 累加子目录大小
-                    entries[i].size = subdir_size;                 // 保存子目录计算出的大小
+                    current_directory_content_size += subdir_size;
+                    entries[i].size = subdir_size;
                     first_child = false;
                 }
             }
-            else // 如果是文件
+            else // 如果是文件 (此时 opts->list_files 必然为 true，因为前面已经 continue 掉了)
             {
                 if (!first_child)
                 {
                     fwprintf(out, L",\n");
                 }
-                fwprintf(out, L"\n%ls  {", child_indent_str); // 文件对象开始
+                fwprintf(out, L"\n%ls  {", child_indent_str);
                 escape_json_string_to_buffer(entries[i].name, temp_name_buf, sizeof(temp_name_buf) / sizeof(wchar_t));
                 fwprintf(out, L"\n%ls    \"type\": \"file\",", child_indent_str);
                 fwprintf(out, L"\n%ls    \"name\": \"%ls\"", child_indent_str, temp_name_buf);
-                current_directory_content_size += entries[i].size; // 累加文件大小
-                global_counts->file_count++;                       // 全局文件计数增加
-                content_counts.file_count++;                       // 当前目录的文件计数增加
+                current_directory_content_size += entries[i].size;
+                global_counts->file_count++; // 统计文件
+                content_counts.file_count++; // 统计当前目录的文件数
 
                 if (opts->show_attributes)
                 {
@@ -1102,37 +1089,38 @@ unsigned long long recursive_json_builder(
                 {
                     fwprintf(out, L",\n%ls    \"size\": %llu", child_indent_str, entries[i].size);
                 }
-                fwprintf(out, L"\n%ls  }", child_indent_str); // 文件对象结束
+                fwprintf(out, L"\n%ls  }", child_indent_str);
                 first_child = false;
             }
         }
         if (entry_count > 0)
-            fwprintf(out, L"\n%ls  ", indent_str); // 如果有内容，则在 "]" 前添加换行和缩进
-        fwprintf(out, L"]");                       // "contents" 数组结束
+            fwprintf(out, L"\n%ls  ", indent_str);
+        fwprintf(out, L"]");
+    }
+    else if (entry_count == 0 && can_have_contents)
+    { // 空目录且未达层级限制，输出空的 contents
+        fwprintf(out, L",\n%ls  \"contents\": []", indent_str);
     }
 
     if (entries)
-        free(entries); // 释放子条目数组
+        free(entries);
 
-    // 如果是根目录 (level 1) 且需要报告，则添加 "report" 字段
-    // 注意：这里的 counts.dir_count 和 counts.file_count 是 content_counts，即当前目录直接包含的内容
     if (level == 1 && !opts->no_report)
     {
         fwprintf(out, L",\n%ls  \"report\": {", indent_str);
-        fwprintf(out, L"\n%ls    \"directories\": %lld,", indent_str, content_counts.dir_count);
-        fwprintf(out, L"\n%ls    \"files\": %lld", indent_str, content_counts.file_count);
+        fwprintf(out, L"\n%ls    \"directories\": %lld,", indent_str, content_counts.dir_count); // 使用 content_counts
+        fwprintf(out, L"\n%ls    \"files\": %lld", indent_str, content_counts.file_count);       // 使用 content_counts
         fwprintf(out, L"\n%ls  }", indent_str);
     }
 
-    // 添加目录大小信息
     if (opts->show_size)
     {
         fwprintf(out, L",\n%ls  \"size\": %llu", indent_str, current_directory_content_size);
     }
 
-    fwprintf(out, L"\n%ls}", indent_str); // 对象结束
+    fwprintf(out, L"\n%ls}", indent_str);
 
-    return current_directory_content_size; // 返回当前目录（包括其内容）的总大小
+    return current_directory_content_size;
 }
 
 // --- XML 输出函数 ---
@@ -1143,21 +1131,22 @@ unsigned long long recursive_xml_builder(const wchar_t *current_path, int level,
 void generate_xml_tree(const wchar_t *root_path, TreeOptions *opts, Counts *global_counts, FILE *out)
 {
     fwprintf(out, L"<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n");
-    fwprintf(out, L"<tree>\n"); // XML 根元素开始
+    fwprintf(out, L"<tree>\n");
 
-    wchar_t indent_str[MAX_PATH_LEN] = L"  "; // 初始缩进
-    // global_counts 会在 recursive_xml_builder 中更新，用于最终的报告
+    wchar_t indent_str[MAX_PATH_LEN] = L"  ";
+    // 根目录本身也算一个目录，在 recursive_xml_builder 中 level 1 时处理并计数
+    global_counts->dir_count = 0; // 重置，由递归函数填充
+    global_counts->file_count = 0;
     recursive_xml_builder(root_path, 1, opts, global_counts, out, indent_str);
 
-    // 添加报告信息 (如果需要)
     if (!opts->no_report)
     {
-        fwprintf(out, L"%ls<report>\n", indent_str); // 报告元素开始
+        fwprintf(out, L"%ls<report>\n", indent_str);
         fwprintf(out, L"%ls  <directories>%lld</directories>\n", indent_str, global_counts->dir_count);
         fwprintf(out, L"%ls  <files>%lld</files>\n", indent_str, global_counts->file_count);
-        fwprintf(out, L"%ls</report>\n", indent_str); // 报告元素结束
+        fwprintf(out, L"%ls</report>\n", indent_str);
     }
-    fwprintf(out, L"</tree>\n"); // XML 根元素结束
+    fwprintf(out, L"</tree>\n");
 }
 
 // 递归构建 XML 元素的函数
@@ -1170,15 +1159,13 @@ unsigned long long recursive_xml_builder(
     FILE *out,                       // 输出文件流
     wchar_t *indent_str)             // 当前 XML 元素的缩进字符串
 {
-
-    // 检查是否超出最大层数限制 (根目录 level=1 总是处理)
     if (opts->max_level != -1 && level > opts->max_level && level > 1)
     {
         return 0;
     }
 
     WIN32_FIND_DATAW current_find_data;
-    HANDLE hCurrentFind = FindFirstFileW(current_path_abs, &current_find_data); // 获取当前目录自身的信息
+    HANDLE hCurrentFind = FindFirstFileW(current_path_abs, &current_find_data);
 
     if (hCurrentFind == INVALID_HANDLE_VALUE)
     {
@@ -1186,10 +1173,18 @@ unsigned long long recursive_xml_builder(
         return 0;
     }
 
-    fwprintf(out, L"%ls<directory", indent_str);           // <directory> 标签开始
-    wchar_t temp_attr_buf[MAX_PATH_LEN * ESCAPE_BUF_MULT]; // 用于转义属性值的缓冲区
+    // 当前目录自身是一个目录，进行计数
+    if (level == 1)
+    { // 根目录
+        global_counts->dir_count++;
+    }
+    // 子目录的计数在递归调用后，由其自身调用时在 level > 1 的情况下完成 (由其父级在循环中递增)
+    // 或者更一致地，在每次进入此函数处理目录时都计数，然后在循环中只计数子目录。
+    // 当前实现：根目录在此计数，子目录在父级循环中计数。
 
-    // 提取目录名
+    fwprintf(out, L"%ls<directory", indent_str);
+    wchar_t temp_attr_buf[MAX_PATH_LEN * ESCAPE_BUF_MULT];
+
     const wchar_t *name_ptr = wcsrchr(current_path_abs, L'\\');
     if (!name_ptr)
         name_ptr = wcsrchr(current_path_abs, L'/');
@@ -1205,31 +1200,29 @@ unsigned long long recursive_xml_builder(
         if (len > 1 && (adjusted_name[len - 1] == L'\\' || adjusted_name[len - 1] == L'/'))
         {
             if (!(len == 3 && adjusted_name[1] == L':'))
-            { // 避免 "C:\" -> "C:"
+            {
                 adjusted_name[len - 1] = L'\0';
             }
         }
     }
 
     escape_xml_string_to_buffer(adjusted_name, temp_attr_buf, sizeof(temp_attr_buf) / sizeof(wchar_t));
-    fwprintf(out, L" name=\"%ls\"", temp_attr_buf); // name 属性
+    fwprintf(out, L" name=\"%ls\"", temp_attr_buf);
 
-    // 添加文件属性
     if (opts->show_attributes)
     {
         wchar_t attr_str[ATTR_STR_LEN];
         get_attribute_string(current_find_data.dwFileAttributes, true, attr_str, ATTR_STR_LEN);
         escape_xml_string_to_buffer(attr_str, temp_attr_buf, sizeof(temp_attr_buf) / sizeof(wchar_t));
-        fwprintf(out, L" attributes=\"%ls\"", temp_attr_buf); // attributes 属性
+        fwprintf(out, L" attributes=\"%ls\"", temp_attr_buf);
     }
-    FindClose(hCurrentFind); // 关闭当前目录的查找句柄
+    FindClose(hCurrentFind);
 
     WIN32_FIND_DATAW find_data_content;
     HANDLE h_find_content = INVALID_HANDLE_VALUE;
     wchar_t search_path[MAX_PATH_LEN];
-    unsigned long long current_directory_content_size = 0; // 当前目录内容的累积大小
+    unsigned long long current_directory_content_size = 0;
 
-    // 构建搜索其内容的路径
     wcscpy(search_path, current_path_abs);
     if (search_path[wcslen(search_path) - 1] != L'\\' && search_path[wcslen(search_path) - 1] != L'/')
     {
@@ -1238,11 +1231,11 @@ unsigned long long recursive_xml_builder(
     wcscat(search_path, L"*");
     h_find_content = FindFirstFileW(search_path, &find_data_content);
 
-    DirEntry *entries = NULL; // 存储子条目的数组
+    DirEntry *entries = NULL;
     size_t entry_count = 0;
     size_t capacity = 0;
 
-    if (h_find_content != INVALID_HANDLE_VALUE) // 如果成功开始查找内容
+    if (h_find_content != INVALID_HANDLE_VALUE)
     {
         do
         {
@@ -1257,6 +1250,12 @@ unsigned long long recursive_xml_builder(
                 continue;
             if (opts->include_pattern[0] != L'\0' && !wildcard_match(find_data_content.cFileName, opts->include_pattern, opts->ignore_case_filter))
                 continue;
+
+            // 如果是文件且不要求显示文件 (受 -f 参数控制)
+            if (!is_dir && !opts->list_files)
+            {
+                continue;
+            }
 
             if (entry_count >= capacity)
             {
@@ -1281,35 +1280,33 @@ unsigned long long recursive_xml_builder(
         FindClose(h_find_content);
     }
 
-    // 对收集到的子条目进行排序
     if (entry_count > 0)
     {
         qsort(entries, entry_count, sizeof(DirEntry), compare_dir_entries);
     }
 
-    // 判断是否可以显示子项 (即未达到最大层级限制)
     bool can_have_children_shown = (opts->max_level == -1 || level < opts->max_level);
 
-    if (entry_count == 0 || !can_have_children_shown) // 如果没有子项，或者达到层级限制
+    if (entry_count == 0 || !can_have_children_shown)
     {
-        if (opts->show_size) // 对于空目录或不展开的目录，其自身大小为0，内容大小也为0
+        if (opts->show_size)
         {
-            fwprintf(out, L" size=\"%llu\"", current_directory_content_size); // 此处 size 指的是其内容大小
+            fwprintf(out, L" size=\"%llu\"", current_directory_content_size);
         }
-        fwprintf(out, L"/>\n"); // 自闭合标签 <directory ... />
+        fwprintf(out, L"/>\n");
     }
-    else // 如果有子项且可以显示
+    else
     {
-        fwprintf(out, L">\n"); // <directory ... > 标签结束部分
+        fwprintf(out, L">\n");
 
         wchar_t child_indent_str[MAX_PATH_LEN];
-        swprintf(child_indent_str, MAX_PATH_LEN, L"%ls  ", indent_str); // 子元素的缩进
+        swprintf(child_indent_str, MAX_PATH_LEN, L"%ls  ", indent_str);
 
         for (size_t i = 0; i < entry_count; ++i)
         {
             if (entries[i].is_directory)
             {
-                // 如果已达到最大层级，则仅输出目录信息，不递归
+                global_counts->dir_count++; // 统计子目录
                 if (opts->max_level != -1 && level >= opts->max_level)
                 {
                     fwprintf(out, L"%ls<directory", child_indent_str);
@@ -1323,11 +1320,10 @@ unsigned long long recursive_xml_builder(
                         fwprintf(out, L" attributes=\"%ls\"", temp_attr_buf);
                     }
                     if (opts->show_size)
-                        fwprintf(out, L" size=\"0\""); // 未展开的目录大小为0
+                        fwprintf(out, L" size=\"0\"");
                     fwprintf(out, L"/>\n");
-                    global_counts->dir_count++; // 计入全局目录数
                 }
-                else // 未达到最大层级，递归处理子目录
+                else
                 {
                     wchar_t child_path[MAX_PATH_LEN];
                     wcscpy(child_path, current_path_abs);
@@ -1336,76 +1332,73 @@ unsigned long long recursive_xml_builder(
                         wcscat(child_path, L"\\");
                     }
                     wcscat(child_path, entries[i].name);
-                    global_counts->dir_count++; // 全局目录计数增加
                     unsigned long long subdir_size = recursive_xml_builder(child_path, level + 1, opts, global_counts, out, child_indent_str);
-                    current_directory_content_size += subdir_size; // 累加子目录大小
+                    current_directory_content_size += subdir_size;
                 }
             }
-            else // 如果是文件
+            else // 如果是文件 (此时 opts->list_files 必然为 true)
             {
-                fwprintf(out, L"%ls<file", child_indent_str); // <file> 标签开始
+                fwprintf(out, L"%ls<file", child_indent_str);
                 escape_xml_string_to_buffer(entries[i].name, temp_attr_buf, sizeof(temp_attr_buf) / sizeof(wchar_t));
-                fwprintf(out, L" name=\"%ls\"", temp_attr_buf);    // name 属性
-                current_directory_content_size += entries[i].size; // 累加文件大小
-                global_counts->file_count++;                       // 全局文件计数增加
+                fwprintf(out, L" name=\"%ls\"", temp_attr_buf);
+                current_directory_content_size += entries[i].size;
+                global_counts->file_count++; // 统计文件
 
                 if (opts->show_attributes)
                 {
                     wchar_t attr_str_file[ATTR_STR_LEN];
                     get_attribute_string(entries[i].attributes, false, attr_str_file, ATTR_STR_LEN);
                     escape_xml_string_to_buffer(attr_str_file, temp_attr_buf, sizeof(temp_attr_buf) / sizeof(wchar_t));
-                    fwprintf(out, L" attributes=\"%ls\"", temp_attr_buf); // attributes 属性
+                    fwprintf(out, L" attributes=\"%ls\"", temp_attr_buf);
                 }
                 if (opts->show_size)
                 {
-                    fwprintf(out, L" size=\"%llu\"", entries[i].size); // size 属性
+                    fwprintf(out, L" size=\"%llu\"", entries[i].size);
                 }
-                fwprintf(out, L"/>\n"); // 自闭合标签 <file ... />
+                fwprintf(out, L"/>\n");
             }
         }
 
-        // 在 </directory> 结束标签前，添加当前目录的总大小 (如果需要)
         if (opts->show_size)
         {
-            fwprintf(out, L"%ls<size>%llu</size>\n", child_indent_str, current_directory_content_size);
+            // 对于 XML，size 通常作为父 <directory> 的属性或子元素
+            // 为了与 JSON 的 "size" 同级，这里可以作为子元素添加
+            fwprintf(out, L"%ls  <size>%llu</size>\n", child_indent_str, current_directory_content_size);
         }
 
-        fwprintf(out, L"%ls</directory>\n", indent_str); // </directory> 结束标签
+        fwprintf(out, L"%ls</directory>\n", indent_str);
     }
     if (entries)
-        free(entries);                     // 释放子条目数组
-    return current_directory_content_size; // 返回当前目录（包括其内容）的总大小
+        free(entries);
+    return current_directory_content_size;
 }
 
 // --- 主函数与参数解析 ---
 int wmain(int argc, wchar_t *argv[])
 {
-    // 为 Windows 环境设置 stderr 为 UTF-8，以便正确显示宽字符错误信息
 #if defined(_WIN32) || defined(_WIN64)
     _setmode(_fileno(stderr), _O_U8TEXT);
 #endif
 
     TreeOptions options;
-    // 初始化默认选项
-    wcscpy(options.path_to_tree, L"."); // 默认路径为当前目录
-    options.max_level = -1;             // 默认不限制递归层数
-    options.list_files = false;         // 默认不显示文件 (文本模式下)
-    options.use_ascii = false;          // 默认不使用 ASCII 线条
-    options.show_hidden = false;        // 默认不显示隐藏文件
-    options.no_report = false;          // 默认显示报告
-    options.show_size = false;          // 默认不显示大小
-    options.use_si_units = false;       // 默认不使用 SI 单位
-    options.show_attributes = false;    // 默认不显示属性
-    options.include_pattern[0] = L'\0'; // 默认无包含模式
-    options.exclude_pattern[0] = L'\0'; // 默认无排除模式
-    options.ignore_case_filter = false; // 默认模式匹配区分大小写
-    options.output_filename[0] = L'\0'; // 默认无输出文件
+    wcscpy(options.path_to_tree, L".");
+    options.max_level = -1;
+    options.list_files = false; // 默认不显示文件，由 -f 控制
+    options.use_ascii = false;
+    options.show_hidden = false;
+    options.no_report = false;
+    options.show_size = false;
+    options.use_si_units = false;
+    options.show_attributes = false;
+    options.include_pattern[0] = L'\0';
+    options.exclude_pattern[0] = L'\0';
+    options.ignore_case_filter = false;
+    options.output_filename[0] = L'\0';
 
-    options.use_color = false;                                   // 默认不使用颜色
-    options.output_format = OUTPUT_TEXT;                         // 默认输出格式为文本
-    options.output_is_console = (_isatty(_fileno(stdout)) != 0); // 判断输出是否为控制台
+    options.use_color = false;
+    options.output_format = OUTPUT_TEXT;
+    options.output_is_console = (_isatty(_fileno(stdout)) != 0);
 
-    // 获取并保存初始控制台颜色属性
     if (options.output_is_console)
     {
         HANDLE hConsole = GetStdHandle(STD_OUTPUT_HANDLE);
@@ -1416,18 +1409,17 @@ int wmain(int argc, wchar_t *argv[])
         }
         else
         {
-            options.saved_console_attributes = COLOR_DEFAULT_FG; // 获取失败时的回退值
+            options.saved_console_attributes = COLOR_DEFAULT_FG;
         }
     }
     else
     {
-        options.saved_console_attributes = COLOR_DEFAULT_FG; // 非控制台输出时的默认值
+        options.saved_console_attributes = COLOR_DEFAULT_FG;
     }
 
-    bool help_requested = false;        // 是否请求了帮助信息
-    bool chinese_lang_preferred = true; // 默认优先显示中文帮助
+    bool help_requested = false;
+    bool chinese_lang_preferred = true;
 
-    // 解析命令行参数
     for (int i = 1; i < argc; ++i)
     {
         if (wcscmp(argv[i], L"-L") == 0)
@@ -1442,7 +1434,7 @@ int wmain(int argc, wchar_t *argv[])
         }
         else if (wcscmp(argv[i], L"/F") == 0 || wcscmp(argv[i], L"-f") == 0)
         {
-            options.list_files = true;
+            options.list_files = true; // -f 参数设置 list_files
         }
         else if (wcscmp(argv[i], L"/A") == 0 || wcscmp(argv[i], L"--ascii") == 0)
         {
@@ -1477,7 +1469,7 @@ int wmain(int argc, wchar_t *argv[])
             if (i + 1 < argc)
             {
                 wcsncpy(options.output_filename, argv[++i], MAX_PATH_LEN - 1);
-                options.output_filename[MAX_PATH_LEN - 1] = L'\0'; // 确保 null 结尾
+                options.output_filename[MAX_PATH_LEN - 1] = L'\0';
             }
             else
             {
@@ -1529,72 +1521,63 @@ int wmain(int argc, wchar_t *argv[])
         }
         else if (wcscmp(argv[i], L"--lang=en") == 0)
         {
-            chinese_lang_preferred = false; // 用户请求英文帮助
+            chinese_lang_preferred = false;
         }
-        else if (argv[i][0] == L'-' || argv[i][0] == L'/') // 未知选项
+        else if (argv[i][0] == L'-' || argv[i][0] == L'/')
         {
             fwprintf(stderr, L"错误: 未知选项 '%s'\nError: Unknown option '%s'\n", argv[i], argv[i]);
-            display_help(chinese_lang_preferred); // 显示帮助信息
+            display_help(chinese_lang_preferred);
             return 1;
         }
-        else // 如果不是选项，则认为是路径
+        else
         {
             wcsncpy(options.path_to_tree, argv[i], MAX_PATH_LEN - 1);
             options.path_to_tree[MAX_PATH_LEN - 1] = L'\0';
         }
     }
 
-    // 如果输出到文件或格式为 JSON/XML，则禁用颜色
     if (options.output_filename[0] != L'\0' || options.output_format != OUTPUT_TEXT)
     {
         options.use_color = false;
     }
-    // 如果输出不是控制台，也禁用颜色
     if (!options.output_is_console)
     {
         options.use_color = false;
     }
 
-    FILE *output_stream_main = stdout; // 默认输出流为 stdout
-    // 如果指定了输出文件
+    FILE *output_stream_main = stdout;
     if (options.output_filename[0] != L'\0')
     {
-        // 以 UTF-8 编码重新打开 stdout 到指定文件
         output_stream_main = _wfreopen(options.output_filename, L"w, ccs=UTF-8", stdout);
         if (output_stream_main == NULL)
         {
             fwprintf(stderr, L"错误: 无法打开输出文件 '%s'。\n", options.output_filename);
             return 1;
         }
-        options.output_is_console = false; // 输出不再是控制台
-        options.use_color = false;         // 禁用颜色
+        options.output_is_console = false;
+        options.use_color = false;
     }
-    else // 如果输出到控制台
+    else
     {
-        // 确保 stdout 以 UTF-8 模式工作 (对于非文件输出)
         _setmode(_fileno(stdout), _O_U8TEXT);
     }
 
-    // 如果请求了帮助信息，则显示并退出
     if (help_requested)
     {
         display_help(chinese_lang_preferred);
         return 0;
     }
 
-    // 如果指定了 --si 但未指定 -s，则自动启用 -s
     if (options.use_si_units && !options.show_size)
     {
         options.show_size = true;
     }
 
-    // 对于 JSON 和 XML 输出，总是需要列出文件以获取完整结构
-    if (options.output_format == OUTPUT_JSON || options.output_format == OUTPUT_XML)
-    {
-        options.list_files = true;
-    }
+    // 移除了此处对 options.list_files 的强制设置
+    // if (options.output_format == OUTPUT_JSON || options.output_format == OUTPUT_XML) {
+    //    options.list_files = true;
+    // }
 
-    // 获取并验证根路径
     wchar_t full_root_path[MAX_PATH_LEN];
     if (_wfullpath(full_root_path, options.path_to_tree, MAX_PATH_LEN) == NULL)
     {
@@ -1609,80 +1592,56 @@ int wmain(int argc, wchar_t *argv[])
         return 1;
     }
 
-    Counts counts = {0, 0}; // 初始化文件和目录计数器
+    Counts counts = {0, 0}; // 初始化计数器
 
-    // 对于 JSON 和 XML，根目录本身也算一个目录，提前计数
-    // 这个计数会在递归函数中被进一步正确地累加子目录
-    // 但对于顶层报告，如果根目录处理为一个对象/元素，它本身就是一个目录
-    if (options.output_format == OUTPUT_JSON || options.output_format == OUTPUT_XML)
-    {
-        // 注意：recursive_json_builder 和 recursive_xml_builder 内部会处理根目录的计数
-        // 因此这里的 counts.dir_count = 1; 可能会导致重复计数，取决于具体实现。
-        // 更好的做法是在递归函数开始时，如果 level == 1，则 global_counts->dir_count++
-        // 或者，如果 JSON/XML 的根是一个数组，那么这个初始计数可能不需要。
-        // 当前 JSON 实现将根目录作为数组的第一个（也可能是唯一一个）对象。
-        // XML 实现将根目录作为 <tree> 下的第一个 <directory> 元素。
-        // 让我们假设递归函数会正确处理根目录的计数。
-        // counts.dir_count = 1; // 暂时注释掉，让递归函数全权负责计数
-    }
-
-    // 根据输出格式选择相应的处理函数
     switch (options.output_format)
     {
     case OUTPUT_JSON:
-        // JSON 的根是一个数组，数组中的第一个元素是根目录对象。
-        // global_counts 会在 recursive_json_builder 中被修改。
-        // 对于 JSON, 根目录自身算一个目录，由 recursive_json_builder 在 level 1 时处理。
-        // 但 global_counts 传递进去时，dir_count 应该是0，由函数内部累加。
-        // 如果要让根目录也计入最终报告的总数，那么在调用前或函数开始时处理。
-        // generate_json_tree 的设计是它会调用 recursive_json_builder 来构建根目录对象。
-        // recursive_json_builder 在处理 level 1 时，会增加 global_counts->dir_count。
+        // JSON 根是一个数组，第一个元素是根目录对象。
+        // 根目录本身算一个目录，在 recursive_json_builder 中 level 1 时通过 global_counts->dir_count++ 添加。
+        // 这里传递的 counts.dir_count 初始为0。
+        counts.dir_count = 1; // 根目录本身是一个目录，先计数
         generate_json_tree(full_root_path, &options, &counts, output_stream_main);
         break;
     case OUTPUT_XML:
-        // XML 的根是 <tree>，第一个子元素是代表根目录的 <directory>。
-        // global_counts 会在 recursive_xml_builder 中被修改。
-        // 与 JSON 类似，根目录的计数由 recursive_xml_builder 处理。
-        // generate_xml_tree 会在最后根据 global_counts 输出 <report>。
+        // XML 根是 <tree>，其下第一个 <directory> 是根目录。
+        // 根目录计数在 recursive_xml_builder 中处理。
+        // generate_xml_tree 内部会重置并使用 global_counts。
         generate_xml_tree(full_root_path, &options, &counts, output_stream_main);
         break;
     case OUTPUT_TEXT:
     default:
-        // 打印根路径名称
         if (options.use_color && options.output_is_console)
         {
             HANDLE hConsole = GetStdHandle(STD_OUTPUT_HANDLE);
-            SetConsoleTextAttribute(hConsole, COLOR_DIR); // 目录使用特定颜色
+            SetConsoleTextAttribute(hConsole, COLOR_DIR);
             wprintf(L"%s", full_root_path);
-            SetConsoleTextAttribute(hConsole, options.saved_console_attributes); // 恢复默认颜色
+            SetConsoleTextAttribute(hConsole, options.saved_console_attributes);
             wprintf(L"\n");
         }
         else
         {
             wprintf(L"%s\n", full_root_path);
         }
-        wchar_t initial_prefix[MAX_PATH_LEN * 2] = L""; // 初始前缀为空
-        counts.dir_count = 0;                           // 文本模式下，计数从0开始，由递归函数累加
+        wchar_t initial_prefix[MAX_PATH_LEN * 2] = L"";
+        counts.dir_count = 0; // 文本模式下，根目录已打印，计数从子目录开始
         counts.file_count = 0;
-        print_tree_recursive(full_root_path, 1, &options, &counts, initial_prefix); // 开始递归打印
-        // 打印统计报告 (如果需要)
+        print_tree_recursive(full_root_path, 1, &options, &counts, initial_prefix);
         if (!options.no_report)
         {
-            wprintf(L"\n%lld 个目录", counts.dir_count);
-            if (options.list_files)
+            wprintf(L"\n%lld 个目录", counts.dir_count); // 此处的 dir_count 不包含根目录本身
+            if (options.list_files || options.output_format != OUTPUT_TEXT)
+            { // 确保文件计数被打印
                 wprintf(L", %lld 个文件", counts.file_count);
+            }
             wprintf(L"\n");
         }
         break;
     }
 
-    // 如果输出了到文件，关闭文件流 (stdout 被重定向了)
-    // _wfreopen 后，原来的 stdout 句柄是否需要显式关闭是个好问题。
-    // 通常 freopen 会处理旧流的关闭。如果 output_stream_main != stdout，则它是文件流。
     if (output_stream_main != stdout && output_stream_main != NULL)
     {
         fclose(output_stream_main);
     }
-
-    return 0; // 程序正常退出
+    return 0;
 }
