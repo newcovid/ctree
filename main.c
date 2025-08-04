@@ -600,7 +600,6 @@ int compare_dir_entries(const void *a, const void *b)
     return _wcsicmp(entry_a->name, entry_b->name);
 }
 
-
 // 递归打印树状结构 (文本模式)
 // 返回当前目录的总大小
 unsigned long long print_tree_recursive(const wchar_t *current_path, int level, TreeOptions *opts, Counts *counts, const wchar_t *prefix_str)
@@ -670,7 +669,8 @@ unsigned long long print_tree_recursive(const wchar_t *current_path, int level, 
             if (!new_entries)
             {
                 fwprintf(stderr, L"内存分配失败。\n");
-                if (entries) free(entries);
+                if (entries)
+                    free(entries);
                 FindClose(h_find);
                 return 0;
             }
@@ -705,22 +705,25 @@ unsigned long long print_tree_recursive(const wchar_t *current_path, int level, 
     {
         qsort(entries, entry_count, sizeof(DirEntry), compare_dir_entries);
     }
-    
+
     // 先计算所有子目录的大小
-    for (size_t i = 0; i < entry_count; ++i) {
-        if (entries[i].is_directory) {
+    for (size_t i = 0; i < entry_count; ++i)
+    {
+        if (entries[i].is_directory)
+        {
             wchar_t child_path[MAX_PATH_LEN];
             swprintf(child_path, MAX_PATH_LEN, L"%s\\%s", current_path, entries[i].name);
-            
+
             // 仅为计算大小而递归，不传递前缀
-            unsigned long long subdir_size = print_tree_recursive(child_path, level + 1, opts, counts, L""); 
+            unsigned long long subdir_size = print_tree_recursive(child_path, level + 1, opts, counts, L"");
             entries[i].size = subdir_size;
             current_directory_total_size += subdir_size;
         }
     }
 
     // 如果 prefix_str 不为空，则表示这是一个递归调用，需要打印内容
-    if (wcslen(prefix_str) > 0 || level == 1) {
+    if (wcslen(prefix_str) > 0 || level == 1)
+    {
         HANDLE hConsole = NULL;
         if (opts->use_color && opts->output_is_console)
         {
@@ -791,11 +794,11 @@ unsigned long long print_tree_recursive(const wchar_t *current_path, int level, 
             }
             else
             {
-                if(opts->list_files) counts->file_count++;
+                if (opts->list_files)
+                    counts->file_count++;
             }
         }
     }
-
 
     if (entries)
     {
@@ -1526,7 +1529,7 @@ int wmain(int argc, wchar_t *argv[])
         options.output_is_console = false;
         options.use_color = false;
     }
-    
+
     if (help_requested)
     {
         display_help(chinese_lang_preferred);
@@ -1560,7 +1563,7 @@ int wmain(int argc, wchar_t *argv[])
     switch (options.output_format)
     {
     case OUTPUT_JSON:
-        counts.dir_count = 1; 
+        counts.dir_count = 1;
         generate_json_tree(full_root_path, &options, &counts, output_stream_main);
         break;
     case OUTPUT_XML:
@@ -1581,7 +1584,7 @@ int wmain(int argc, wchar_t *argv[])
             wprintf(L"%s\n", full_root_path);
         }
         wchar_t initial_prefix[MAX_PATH_LEN * 2] = L"";
-        counts.dir_count = 0; 
+        counts.dir_count = 0;
         counts.file_count = 0;
         print_tree_recursive(full_root_path, 1, &options, &counts, initial_prefix);
         if (!options.no_report)
