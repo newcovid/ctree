@@ -68,10 +68,10 @@ typedef struct
 
 // --- 树状线条字符定义 (文本模式) ---
 // FIX: 使用 Unicode 代码点以避免源文件编码问题
-const wchar_t *L_VERT = L"\x2502";       // │
-const wchar_t *L_VERT_RIGHT = L"\x251C"; // ├
-const wchar_t *L_UP_RIGHT = L"\x2514";   // └
-const wchar_t *L_HORZ = L"\x2500";       // ─
+const wchar_t *L_VERT = L"\x2502";        // │
+const wchar_t *L_VERT_RIGHT = L"\x251C";  // ├
+const wchar_t *L_UP_RIGHT = L"\x2514";    // └
+const wchar_t *L_HORZ = L"\x2500";        // ─
 
 const wchar_t *L_VERT_ASCII = L"|";
 const wchar_t *L_VERT_RIGHT_ASCII = L"+";
@@ -100,33 +100,33 @@ const wchar_t *L_HORZ_ASCII = L"-";
 
 // --- 帮助文本 ---
 const wchar_t *help_text_zh_CN[] = {
-    L"用法: ctree [路径] [选项]",
-    L"图形化显示驱动器或路径的文件夹结构。",
+    L"\x7528\x6CD5: ctree [\x8DEF\x5F84] [\x9009\x9879]",
+    L"\x56FE\x5F62\x5316\x663E\x793A\x9A71\x52A8\x5668\x6216\x8DEF\x5F84\x7684\x6587\x4EF6\x5939\x7ED3\x6784\x3002",
     L"",
-    L"选项:",
-    L"  [路径]            指定要显示树状结构的目录。默认为当前目录。",
-    L"  -L <层数>         限制目录树的显示层数。例如: -L 2",
-    L"  /F, -f            显示每个文件夹中文件的名称 (适用于所有输出模式)。", // 修改了描述
-    L"  /A, --ascii       (文本模式) 使用 ASCII 字符代替扩展字符绘制树状线条。",
-    L"  -c                (文本模式) 为输出着色以区分不同类型的文件/目录 (仅控制台)。",
-    L"  -a                显示隐藏文件和目录 (包括系统文件)。",
-    L"  -s, --show-size   显示文件和目录的大小。目录大小为其所含所有文件和子目录的总大小。",
-    L"                    默认使用二进制单位 (KiB, MiB)。",
-    L"      --si          与 -s 一起使用时，以十进制单位 (KB, MB) 显示大小。",
-    L"  -p, --show-perms  显示文件/目录的属性 (R=只读,H=隐藏,S=系统,A=存档,D=目录,L=链接,C=压缩,E=加密)。",
-    L"  -o <文件>, --output <文件>  将树状目录输出到指定文件 (UTF-8编码)。此选项适用于所有输出格式(文本, JSON, XML)。",
-    L"  -J                以 JSON 格式输出。如果未指定 -o，则输出到控制台。",
-    L"  -X                以 XML 格式输出。如果未指定 -o，则输出到控制台。",
-    L"  --include <模式>  只显示名称匹配模式的文件/目录。支持 '*' 和 '?' 通配符。",
-    L"                    例如: --include \"*.txt\"",
-    L"  --exclude <模式>  排除名称匹配模式的文件/目录。优先于 --include。",
-    L"                    例如: --exclude \"node_modules\"",
-    L"  --ignore-case     使 --include 和 --exclude 的模式匹配忽略大小写。",
-    L"  --noreport        禁止在末尾显示目录和文件的统计报告。",
-    L"  -h, --help        显示此帮助信息。",
-    L"  --lang=en         将帮助信息切换为英文。",
+    L"\x9009\x9879:",
+    L"  [\x8DEF\x5F84]            \x6307\x5B9A\x8981\x663E\x793A\x6811\x72B6\x7ED3\x6784\x7684\x76EE\x5F55\x3002\x9ED8\x8BA4\x4E3A\x5F53\x524D\x76EE\x5F55\x3002",
+    L"  -L <\x5C42\x6570>         \x9650\x5236\x76EE\x5F55\x6811\x7684\x663E\x793A\x5C42\x6570\x3002\x4F8B\x5982: -L 2",
+    L"  /F, -f            \x663E\x793A\x6BCF\x4E2A\x6587\x4EF6\x5939\x4E2D\x6587\x4EF6\x7684\x540D\x79F0 (\x9002\x7528\x4E8E\x6240\x6709\x8F93\x51FA\x6A21\x5F0F)\x3002",
+    L"  /A, --ascii       (\x6587\x672C\x6A21\x5F0F) \x4F7F\x7528 ASCII \x5B57\x7B26\x4EE3\x66FF\x6269\x5C55\x5B57\x7B26\x7ED8\x5236\x6811\x72B6\x7EBF\x6761\x3002",
+    L"  -c                (\x6587\x672C\x6A21\x5F0F) \x4E3A\x8F93\x51FA\x7740\x8272\x4EE5\x533A\x5206\x4E0D\x540C\x7C7B\x578B\x7684\x6587\x4EF6/\x76EE\x5F55 (\x4EC5\x63A7\x5236\x53F0)\x3002",
+    L"  -a                \x663E\x793A\x9690\x85CF\x6587\x4EF6\x548C\x76EE\x5F55 (\x5305\x62EC\x7CFB\x7EDF\x6587\x4EF6)\x3002",
+    L"  -s, --show-size   \x663E\x793A\x6587\x4EF6\x548C\x76EE\x5F55\x7684\x5927\x5C0F\x3002\x76EE\x5F55\x5927\x5C0F\x4E3A\x5176\x6240\x542B\x6240\x6709\x6587\x4EF6\x548C\x5B50\x76EE\x5F55\x7684\x603B\x5927\x5C0F\x3002",
+    L"                    \x9ED8\x8BA4\x4F7F\x7528\x4E8C\x8FDB\x5236\x5355\x4F4D (KiB, MiB)\x3002",
+    L"      --si          \x4E0E -s \x4E00\x8D77\x4F7F\x7528\x65F6\x_FF0C\x4EE5\x5341\x8FDB\x5236\x5355\x4F4D (KB, MB) \x663E\x793A\x5927\x5C0F\x3002",
+    L"  -p, --show-perms  \x663E\x793A\x6587\x4EF6/\x76EE\x5F55\x7684\x5C5E\x6027 (R=\x53EA\x8BFB,H=\x9690\x85CF,S=\x7CFB\x7EDF,A=\x5B58\x6863,D=\x76EE\x5F55,L=\x94FE\x63A5,C=\x538B\x7F29,E=\x52A0\x5BC6)\x3002",
+    L"  -o <\x6587\x4EF6>, --output <\x6587\x4EF6>  \x5C06\x6811\x72B6\x76EE\x5F55\x8F93\x51FA\x5230\x6307\x5B9A\x6587\x4EF6 (UTF-8\x7F16\x7801)\x3002\x6B64\x9009\x9879\x9002\x7528\x4E8E\x6240\x6709\x8F93\x51FA\x683C\x5F0F(\x6587\x672C, JSON, XML)\x3002",
+    L"  -J                \x4EE5 JSON \x683C\x5F0F\x8F93\x51FA\x3002\x5982\x679C\x672A\x6307\x5B9A -o\x_FF0C\x5219\x8F93\x51FA\x5230\x63A7\x5236\x53F0\x3002",
+    L"  -X                \x4EE5 XML \x683C\x5F0F\x8F93\x51FA\x3002\x5982\x679C\x672A\x6307\x5B9A -o\x_FF0C\x5219\x8F93\x51FA\x5230\x63A7\x5236\x53F0\x3002",
+    L"  --include <\x6A21\x5F0F>  \x53EA\x663E\x793A\x540D\x79F0\x5339\x914D\x6A21\x5F0F\x7684\x6587\x4EF6/\x76EE\x5F55\x3002\x652F\x6301 '*' \x548C '?' \x901A\x914D\x7B26\x3002",
+    L"                    \x4F8B\x5982: --include \"*.txt\"",
+    L"  --exclude <\x6A21\x5F0F>  \x6392\x9664\x540D\x79F0\x5339\x914D\x6A21\x5F0F\x7684\x6587\x4EF6/\x76EE\x5F55\x3002\x4F18\x5148\x4E8E --include\x3002",
+    L"                    \x4F8B\x5982: --exclude \"node_modules\"",
+    L"  --ignore-case     \x4F7F --include \x548C --exclude \x7684\x6A21\x5F0F\x5339\x914D\x5FFD\x7565\x5927\x5C0F\x5199\x3002",
+    L"  --noreport        \x7981\x6B62\x5728\x672B\x5C3E\x663E\x793A\x76EE\x5F55\x548C\x6587\x4EF6\x7684\x7EDF\x8BA1\x62A5\x544A\x3002",
+    L"  -h, --help        \x663E\x793A\x6B64\x5E2E\x52A9\x4FE1\x606F\x3002",
+    L"  --lang=en         \x5C06\x5E2E\x52A9\x4FE1\x606F\x5207\x6362\x4E3A\x82F1\x6587\x3002",
     L"",
-    L"示例:",
+    L"\x793A\x4F8B:",
     L"  ctree C:\\Users\\YourName\\Documents -L 3 /F -s -c",
     L"  ctree . -a --ascii --exclude \"*.tmp\" --include \"src/*\"",
     L"  ctree /F -p -s -o output.txt",
@@ -601,6 +601,7 @@ int compare_dir_entries(const void *a, const void *b)
     return _wcsicmp(entry_a->name, entry_b->name);
 }
 
+
 // 递归打印树状结构 (文本模式)
 // 返回当前目录的总大小
 unsigned long long print_tree_recursive(const wchar_t *current_path, int level, TreeOptions *opts, Counts *counts, const wchar_t *prefix_str)
@@ -628,7 +629,7 @@ unsigned long long print_tree_recursive(const wchar_t *current_path, int level, 
     {
         if (GetLastError() != ERROR_FILE_NOT_FOUND && GetLastError() != ERROR_PATH_NOT_FOUND)
         {
-            fwprintf(stderr, L"警告: 无法访问路径 '%s' (错误代码: %lu)。跳过。\n", current_path, GetLastError());
+            fwprintf(stderr, L"\x8B66\x544A: \x65E0\x6CD5\x8BBF\x95EE\x8DEF\x5F84 '%s' (\x9519\x8BEF\x4EE3\x7801: %lu)\x3002\x8DF3\x8FC7\x3002\n", current_path, GetLastError());
         }
         return 0;
     }
@@ -669,9 +670,8 @@ unsigned long long print_tree_recursive(const wchar_t *current_path, int level, 
             DirEntry *new_entries = (DirEntry *)realloc(entries, capacity * sizeof(DirEntry));
             if (!new_entries)
             {
-                fwprintf(stderr, L"内存分配失败。\n");
-                if (entries)
-                    free(entries);
+                fwprintf(stderr, L"\x5185\x5B58\x5206\x914D\x5931\x8D25\x3002\n");
+                if (entries) free(entries);
                 FindClose(h_find);
                 return 0;
             }
@@ -706,25 +706,22 @@ unsigned long long print_tree_recursive(const wchar_t *current_path, int level, 
     {
         qsort(entries, entry_count, sizeof(DirEntry), compare_dir_entries);
     }
-
+    
     // 先计算所有子目录的大小
-    for (size_t i = 0; i < entry_count; ++i)
-    {
-        if (entries[i].is_directory)
-        {
+    for (size_t i = 0; i < entry_count; ++i) {
+        if (entries[i].is_directory) {
             wchar_t child_path[MAX_PATH_LEN];
             swprintf(child_path, MAX_PATH_LEN, L"%s\\%s", current_path, entries[i].name);
-
+            
             // 仅为计算大小而递归，不传递前缀
-            unsigned long long subdir_size = print_tree_recursive(child_path, level + 1, opts, counts, L"");
+            unsigned long long subdir_size = print_tree_recursive(child_path, level + 1, opts, counts, L""); 
             entries[i].size = subdir_size;
             current_directory_total_size += subdir_size;
         }
     }
 
     // 如果 prefix_str 不为空，则表示这是一个递归调用，需要打印内容
-    if (wcslen(prefix_str) > 0 || level == 1)
-    {
+    if (wcslen(prefix_str) > 0 || level == 1) {
         HANDLE hConsole = NULL;
         if (opts->use_color && opts->output_is_console)
         {
@@ -795,11 +792,11 @@ unsigned long long print_tree_recursive(const wchar_t *current_path, int level, 
             }
             else
             {
-                if (opts->list_files)
-                    counts->file_count++;
+                if(opts->list_files) counts->file_count++;
             }
         }
     }
+
 
     if (entries)
     {
@@ -844,7 +841,7 @@ unsigned long long recursive_json_builder(
 
     if (hCurrentFind == INVALID_HANDLE_VALUE)
     {
-        fwprintf(stderr, L"JSON 警告: 无法访问路径 '%s' (错误: %lu)\n", current_path_abs, GetLastError());
+        fwprintf(stderr, L"JSON \x8B66\x544A: \x65E0\x6CD5\x8BBF\x95EE\x8DEF\x5F84 '%s' (\x9519\x8BEF: %lu)\n", current_path_abs, GetLastError());
         return 0;
     }
 
@@ -948,7 +945,7 @@ unsigned long long recursive_json_builder(
                 DirEntry *new_entries = (DirEntry *)realloc(entries, capacity * sizeof(DirEntry));
                 if (!new_entries)
                 {
-                    fwprintf(stderr, L"JSON: 目录条目内存分配失败。\n");
+                    fwprintf(stderr, L"JSON: \x76EE\x5F55\x6761\x76EE\x5185\x5B58\x5206\x914D\x5931\x8D25\x3002\n");
                     if (entries)
                         free(entries);
                     entries = NULL;
@@ -1131,7 +1128,7 @@ unsigned long long recursive_xml_builder(
 
     if (hCurrentFind == INVALID_HANDLE_VALUE)
     {
-        fwprintf(stderr, L"XML 警告: 无法访问路径 '%s' (错误: %lu)\n", current_path_abs, GetLastError());
+        fwprintf(stderr, L"XML \x8B66\x544A: \x65E0\x6CD5\x8BBF\x95EE\x8DEF\x5F84 '%s' (\x9519\x8BEF: %lu)\n", current_path_abs, GetLastError());
         return 0;
     }
 
@@ -1225,7 +1222,7 @@ unsigned long long recursive_xml_builder(
                 DirEntry *new_entries = (DirEntry *)realloc(entries, capacity * sizeof(DirEntry));
                 if (!new_entries)
                 {
-                    fwprintf(stderr, L"XML: 目录条目内存分配失败\n");
+                    fwprintf(stderr, L"XML: \x76EE\x5F55\x6761\x76EE\x5185\x5B58\x5206\x914D\x5931\x8D25\n");
                     if (entries)
                         free(entries);
                     entries = NULL;
@@ -1395,7 +1392,7 @@ int wmain(int argc, wchar_t *argv[])
                 options.max_level = _wtoi(argv[++i]);
             else
             {
-                fwprintf(stderr, L"错误: -L 选项需要一个层数参数。\n");
+                fwprintf(stderr, L"\x9519\x8BEF: -L \x9009\x9879\x9700\x8981\x4E00\x4E2A\x5C42\x6570\x53C2\x6570\x3002\n");
                 SetConsoleOutputCP(original_console_cp);
                 return 1;
             }
@@ -1441,7 +1438,7 @@ int wmain(int argc, wchar_t *argv[])
             }
             else
             {
-                fwprintf(stderr, L"错误: -o 选项需要一个文件名参数。\n");
+                fwprintf(stderr, L"\x9519\x8BEF: -o \x9009\x9879\x9700\x8981\x4E00\x4E2A\x6587\x4EF6\x540D\x53C2\x6570\x3002\n");
                 SetConsoleOutputCP(original_console_cp);
                 return 1;
             }
@@ -1463,7 +1460,7 @@ int wmain(int argc, wchar_t *argv[])
             }
             else
             {
-                fwprintf(stderr, L"错误: --include 选项需要一个模式参数。\n");
+                fwprintf(stderr, L"\x9519\x8BEF: --include \x9009\x9879\x9700\x8981\x4E00\x4E2A\x6A21\x5F0F\x53C2\x6570\x3002\n");
                 SetConsoleOutputCP(original_console_cp);
                 return 1;
             }
@@ -1477,7 +1474,7 @@ int wmain(int argc, wchar_t *argv[])
             }
             else
             {
-                fwprintf(stderr, L"错误: --exclude 选项需要一个模式参数。\n");
+                fwprintf(stderr, L"\x9519\x8BEF: --exclude \x9009\x9879\x9700\x8981\x4E00\x4E2A\x6A21\x5F0F\x53C2\x6570\x3002\n");
                 SetConsoleOutputCP(original_console_cp);
                 return 1;
             }
@@ -1496,7 +1493,7 @@ int wmain(int argc, wchar_t *argv[])
         }
         else if (argv[i][0] == L'-' || argv[i][0] == L'/')
         {
-            fwprintf(stderr, L"错误: 未知选项 '%s'\nError: Unknown option '%s'\n", argv[i], argv[i]);
+            fwprintf(stderr, L"\x9519\x8BEF: \x672A\x77E5\x9009\x9879 '%s'\nError: Unknown option '%s'\n", argv[i], argv[i]);
             display_help(chinese_lang_preferred);
             SetConsoleOutputCP(original_console_cp);
             return 1;
@@ -1523,14 +1520,14 @@ int wmain(int argc, wchar_t *argv[])
         output_stream_main = _wfreopen(options.output_filename, L"w, ccs=UTF-8", stdout);
         if (output_stream_main == NULL)
         {
-            fwprintf(stderr, L"错误: 无法打开输出文件 '%s'。\n", options.output_filename);
+            fwprintf(stderr, L"\x9519\x8BEF: \x65E0\x6CD5\x6253\x5F00\x8F93\x51FA\x6587\x4EF6 '%s'\x3002\n", options.output_filename);
             SetConsoleOutputCP(original_console_cp);
             return 1;
         }
         options.output_is_console = false;
         options.use_color = false;
     }
-
+    
     if (help_requested)
     {
         display_help(chinese_lang_preferred);
@@ -1546,7 +1543,7 @@ int wmain(int argc, wchar_t *argv[])
     wchar_t full_root_path[MAX_PATH_LEN];
     if (_wfullpath(full_root_path, options.path_to_tree, MAX_PATH_LEN) == NULL)
     {
-        fwprintf(stderr, L"错误: 无法解析路径 '%s'。\n", options.path_to_tree);
+        fwprintf(stderr, L"\x9519\x8BEF: \x65E0\x6CD5\x89E3\x6790\x8DEF\x5F84 '%s'\x3002\n", options.path_to_tree);
         SetConsoleOutputCP(original_console_cp);
         return 1;
     }
@@ -1554,7 +1551,7 @@ int wmain(int argc, wchar_t *argv[])
     DWORD dwAttrib = GetFileAttributesW(full_root_path);
     if (dwAttrib == INVALID_FILE_ATTRIBUTES || !(dwAttrib & FILE_ATTRIBUTE_DIRECTORY))
     {
-        fwprintf(stderr, L"错误: 路径 '%s' 无效或不是一个目录。\n", full_root_path);
+        fwprintf(stderr, L"\x9519\x8BEF: \x8DEF\x5F84 '%s' \x65E0\x6548\x6216\x4E0D\x662F\x4E00\x4E2A\x76EE\x5F55\x3002\n", full_root_path);
         SetConsoleOutputCP(original_console_cp);
         return 1;
     }
@@ -1564,7 +1561,7 @@ int wmain(int argc, wchar_t *argv[])
     switch (options.output_format)
     {
     case OUTPUT_JSON:
-        counts.dir_count = 1;
+        counts.dir_count = 1; 
         generate_json_tree(full_root_path, &options, &counts, output_stream_main);
         break;
     case OUTPUT_XML:
@@ -1585,15 +1582,16 @@ int wmain(int argc, wchar_t *argv[])
             wprintf(L"%s\n", full_root_path);
         }
         wchar_t initial_prefix[MAX_PATH_LEN * 2] = L"";
-        counts.dir_count = 0;
+        counts.dir_count = 0; 
         counts.file_count = 0;
         print_tree_recursive(full_root_path, 1, &options, &counts, initial_prefix);
         if (!options.no_report)
         {
-            wprintf(L"\n%lld 个目录", counts.dir_count);
+            // FIX: 使用 Unicode 代码点来表示中文字符串
+            wprintf(L"\n%lld \x4E2A\x76EE\x5F55", counts.dir_count); // 个目录
             if (options.list_files || options.output_format != OUTPUT_TEXT)
             {
-                wprintf(L", %lld 个文件", counts.file_count);
+                wprintf(L", %lld \x4E2A\x6587\x4EF6", counts.file_count); // 个文件
             }
             wprintf(L"\n");
         }
