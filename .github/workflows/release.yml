@@ -42,12 +42,12 @@ jobs:
       # 在 MSYS2 shell 环境中运行 gcc 命令来编译 main.c 文件
       - name: Compile C code
         shell: msys2 {0}
-        run: gcc main.c -o ctree.exe -lshlwapi -mconsole -O2 -s
+        run: gcc main.c -o ctree.exe -lshlwapi -Wl,--subsystem,console -O2 -s
         # gcc: 编译器命令
         # main.c: 你的源文件
         # -o ctree.exe: 指定输出的可执行文件名为 ctree.exe
         # -lshlwapi: 链接 Shlwapi 库，因为代码中使用了相关函数
-        # -mconsole: 指定这是一个控制台应用程序，解决 WinMain 链接错误
+        # -Wl,--subsystem,console: 直接传递参数给链接器，指定这是一个控制台应用程序
         # -O2: 优化级别，提升性能
         # -s: 移除符号信息，减小文件大小
 
