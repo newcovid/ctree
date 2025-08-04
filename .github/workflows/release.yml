@@ -25,35 +25,24 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      # 步骤二：设置 MSYS2 环境
-      # 使用 msys2/setup-msys2@v2 来安装和配置 MinGW-w64 GCC 编译器
-      - name: Setup MSYS2
-        uses: msys2/setup-msys2@v2
-        with:
-          # 指定使用 MINGW64 环境
-          msystem: MINGW64
-          # 更新 MSYS2 基础数据库和包
-          update: true
-          # 安装 GCC 工具链
-          install: >-
-            mingw-w64-x86_64-gcc
+      # 步骤二：设置 MSVC 编译环境
+      # 使用 microsoft/setup-msvc@v1 action 来配置 Visual Studio C++ 编译器环境
+      - name: Setup MSVC
+        uses: microsoft/setup-msvc@v1
 
       # 步骤三：编译 C 代码
-      # 在 MSYS2 shell 环境中运行 gcc 命令来编译 main.c 文件
+      # 使用 MSVC 编译器 (cl.exe) 来编译 main.c
       - name: Compile C code
-        shell: msys2 {0}
-        run: gcc main.c -o ctree.exe -lshlwapi -Wl,--subsystem,console -O2 -s
-        # gcc: 编译器命令
+        shell: cmd
+        run: cl.exe main.c /Fe:ctree.exe /link Shlwapi.lib /O2
+        # cl.exe: MSVC 编译器命令
         # main.c: 你的源文件
-        # -o ctree.exe: 指定输出的可执行文件名为 ctree.exe
-        # -lshlwapi: 链接 Shlwapi 库，因为代码中使用了相关函数
-        # -Wl,--subsystem,console: 直接传递参数给链接器，指定这是一个控制台应用程序
-        # -O2: 优化级别，提升性能
-        # -s: 移除符号信息，减小文件大小
+        # /Fe:ctree.exe: 指定输出的可执行文件名为 ctree.exe
+        # /link Shlwapi.lib: 告诉链接器链接 Shlwapi.lib 库
+        # /O2: 优化级别，提升性能
 
       # 步骤四：上传构建产物
       # 使用 actions/upload-artifact@v4 将编译好的 exe 文件作为产物上传
-      # 这样后续的 release 任务就可以下载和使用它
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
