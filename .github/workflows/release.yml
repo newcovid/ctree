@@ -1,0 +1,81 @@
+# GitHub Actions 工作流名称
+name: Build and Release ctree
+
+# 工作流触发器配置
+on:
+  # 当有代码推送到 main 分支时触发
+  push:
+    branches:
+      - main
+  # 当创建新的标签（tag）时触发
+  release:
+    types: [created]
+
+# 定义工作流中的任务
+jobs:
+  # 构建任务
+  build:
+    # 指定运行环境为最新的 Windows 系统
+    runs-on: windows-latest
+
+    # 定义任务步骤
+    steps:
+      # 步骤一：检出代码
+      # 使用 actions/checkout@v3 拉取你的仓库代码
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      # 步骤二：设置 MinGW-w64 环境
+      # 使用 egor-tensin/setup-mingw@v2 来安装和配置 GCC 编译器
+      - name: Set up MinGW-w64
+        uses: egor-tensin/setup-mingw@v2
+        with:
+          # 指定架构为 x86_64
+          arch: x86_64
+
+      # 步骤三：编译 C 代码
+      # 运行 gcc 命令来编译 main.c 文件
+      - name: Compile C code
+        run: gcc main.c -o ctree.exe -lshlwapi -O2 -s
+        # gcc: 编译器命令
+        # main.c: 你的源文件
+        # -o ctree.exe: 指定输出的可执行文件名为 ctree.exe
+        # -lshlwapi: 链接 Shlwapi 库，因为代码中使用了相关函数
+        # -O2: 优化级别，提升性能
+        # -s: 移除符号信息，减小文件大小
+
+      # 步骤四：上传构建产物
+      # 使用 actions/upload-artifact@v3 将编译好的 exe 文件作为产物上传
+      # 这样后续的 release 任务就可以下载和使用它
+      - name: Upload artifact
+        uses: actions/upload-artifact@v3
+        with:
+          # 产物名称
+          name: ctree-executable
+          # 要上传的文件路径
+          path: ctree.exe
+
+  # 发布任务
+  release:
+    # 只有在创建了新的 release 时才运行此任务
+    if: github.event_name == 'release'
+    # 依赖于 build 任务，确保先构建再发布
+    needs: build
+    # 指定运行环境
+    runs-on: windows-latest
+
+    steps:
+      # 步骤一：下载构建产物
+      # 从 build 任务中下载名为 ctree-executable 的产物
+      - name: Download artifact
+        uses: actions/download-artifact@v3
+        with:
+          name: ctree-executable
+
+      # 步骤二：上传到 Release
+      # 使用 softprops/action-gh-release@v1 将文件上传到 GitHub Release
+      - name: Upload to Release
+        uses: softprops/action-gh-release@v1
+        with:
+          # 将下载的 ctree.exe 文件作为附件上传
+          files: ctree.exe
