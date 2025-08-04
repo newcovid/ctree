@@ -25,23 +25,21 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      # 步骤二：设置 MSVC 编译环境
-      # 使用 microsoft/setup-msvc@v1 action 来配置 Visual Studio C++ 编译器环境
-      - name: Setup MSVC
-        uses: microsoft/setup-msvc@v1
-
-      # 步骤三：编译 C 代码
-      # 使用 MSVC 编译器 (cl.exe) 来编译 main.c
-      - name: Compile C code
+      # 步骤二：编译 C 代码 (使用 MSVC)
+      # 直接在 cmd shell 中调用 vcvars64.bat 来设置 MSVC 环境变量，然后进行编译
+      - name: Compile C code with MSVC
         shell: cmd
-        run: cl.exe main.c /Fe:ctree.exe /link Shlwapi.lib /O2
+        run: |
+          call "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvars64.bat"
+          cl.exe main.c /Fe:ctree.exe /link Shlwapi.lib /O2
+        # call "..." : 加载 MSVC 64位编译环境
         # cl.exe: MSVC 编译器命令
         # main.c: 你的源文件
         # /Fe:ctree.exe: 指定输出的可执行文件名为 ctree.exe
         # /link Shlwapi.lib: 告诉链接器链接 Shlwapi.lib 库
         # /O2: 优化级别，提升性能
 
-      # 步骤四：上传构建产物
+      # 步骤三：上传构建产物
       # 使用 actions/upload-artifact@v4 将编译好的 exe 文件作为产物上传
       - name: Upload artifact
         uses: actions/upload-artifact@v4
