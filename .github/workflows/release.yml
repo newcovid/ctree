@@ -7,7 +7,7 @@ on:
   push:
     branches:
       - main
-  # 当创建新的标签（tag）时触发
+  # 当创建新的 release 时触发
   release:
     types: [created]
 
@@ -21,9 +21,9 @@ jobs:
     # 定义任务步骤
     steps:
       # 步骤一：检出代码
-      # 使用 actions/checkout@v3 拉取你的仓库代码
+      # 使用 actions/checkout@v4 拉取你的仓库代码
       - name: Checkout code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       # 步骤二：设置 MinGW-w64 环境
       # 使用 egor-tensin/setup-mingw@v2 来安装和配置 GCC 编译器
@@ -45,10 +45,10 @@ jobs:
         # -s: 移除符号信息，减小文件大小
 
       # 步骤四：上传构建产物
-      # 使用 actions/upload-artifact@v3 将编译好的 exe 文件作为产物上传
+      # 使用 actions/upload-artifact@v4 将编译好的 exe 文件作为产物上传
       # 这样后续的 release 任务就可以下载和使用它
       - name: Upload artifact
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           # 产物名称
           name: ctree-executable
@@ -68,14 +68,14 @@ jobs:
       # 步骤一：下载构建产物
       # 从 build 任务中下载名为 ctree-executable 的产物
       - name: Download artifact
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           name: ctree-executable
 
       # 步骤二：上传到 Release
-      # 使用 softprops/action-gh-release@v1 将文件上传到 GitHub Release
+      # 使用 softprops/action-gh-release@v2 将文件上传到 GitHub Release
       - name: Upload to Release
-        uses: softprops/action-gh-release@v1
+        uses: softprops/action-gh-release@v2
         with:
           # 将下载的 ctree.exe 文件作为附件上传
           files: ctree.exe
