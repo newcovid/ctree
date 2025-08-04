@@ -67,10 +67,11 @@ typedef struct
 } DirEntry;
 
 // --- 树状线条字符定义 (文本模式) ---
-const wchar_t *L_VERT = L"│";
-const wchar_t *L_VERT_RIGHT = L"├";
-const wchar_t *L_UP_RIGHT = L"└";
-const wchar_t *L_HORZ = L"─";
+// FIX: 使用 Unicode 代码点以避免源文件编码问题
+const wchar_t *L_VERT = L"\x2502";       // │
+const wchar_t *L_VERT_RIGHT = L"\x251C"; // ├
+const wchar_t *L_UP_RIGHT = L"\x2514";   // └
+const wchar_t *L_HORZ = L"\x2500";       // ─
 
 const wchar_t *L_VERT_ASCII = L"|";
 const wchar_t *L_VERT_RIGHT_ASCII = L"+";
