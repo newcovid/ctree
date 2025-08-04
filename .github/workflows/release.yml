@@ -25,17 +25,23 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      # 步骤二：设置 MinGW-w64 环境
-      # 使用 egor-tensin/setup-mingw@v2 来安装和配置 GCC 编译器
-      - name: Set up MinGW-w64
-        uses: egor-tensin/setup-mingw@v2
+      # 步骤二：设置 MSYS2 环境
+      # 使用 msys2/setup-msys2@v2 来安装和配置 MinGW-w64 GCC 编译器
+      - name: Setup MSYS2
+        uses: msys2/setup-msys2@v2
         with:
-          # 指定架构为 x86_64
-          arch: x86_64
+          # 指定使用 MINGW64 环境
+          msystem: MINGW64
+          # 更新 MSYS2 基础数据库和包
+          update: true
+          # 安装 GCC 工具链
+          install: >-
+            mingw-w64-x86_64-gcc
 
       # 步骤三：编译 C 代码
-      # 运行 gcc 命令来编译 main.c 文件
+      # 在 MSYS2 shell 环境中运行 gcc 命令来编译 main.c 文件
       - name: Compile C code
+        shell: msys2 {0}
         run: gcc main.c -o ctree.exe -lshlwapi -O2 -s
         # gcc: 编译器命令
         # main.c: 你的源文件
