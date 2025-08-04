@@ -1,4 +1,4 @@
-﻿#define _CRT_SECURE_NO_WARNINGS // 允许在 MSVC 下使用 strcpy、wcscpy 等函数
+#define _CRT_SECURE_NO_WARNINGS // 允许在 MSVC 下使用 strcpy、wcscpy 等函数
 #include <windows.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -608,11 +608,13 @@ int compare_dir_entries(const void *a, const void *b)
     return _wcsicmp(entry_a->name, entry_b->name);
 }
 
+
+// FIX START: 修复了 print_tree_recursive 函数的逻辑
 // 递归打印树状结构 (文本模式)
 // 返回当前目录的总大小
-unsigned long long print_tree_recursive(const wchar_t *current_path, int level, TreeOptions *opts, Counts *counts, wchar_t *prefix_str)
+unsigned long long print_tree_recursive(const wchar_t *current_path, int level, TreeOptions *opts, Counts *counts, const wchar_t *prefix_str)
 {
-    if (opts->max_level != -1 && level > opts->max_level) // 检查是否超出最大层数限制
+    if (opts->max_level != -1 && level > opts->max_level)
     {
         return 0;
     }
@@ -620,21 +622,19 @@ unsigned long long print_tree_recursive(const wchar_t *current_path, int level, 
     WIN32_FIND_DATAW find_data;
     HANDLE h_find = INVALID_HANDLE_VALUE;
     wchar_t search_path[MAX_PATH_LEN];
-    unsigned long long current_directory_total_size = 0; // 当前目录的总大小
+    unsigned long long current_directory_total_size = 0;
 
-    // 构建搜索路径，例如 "C:\path\to\dir\*"
     wcscpy(search_path, current_path);
-    if (search_path[wcslen(search_path) - 1] != L'\\' && search_path[wcslen(search_path) - 1] != L'/')
+    if (search_path[wcslen(search_path) - 1] != L'\\')
     {
         wcscat(search_path, L"\\");
     }
     wcscat(search_path, L"*");
 
-    h_find = FindFirstFileW(search_path, &find_data); // 查找第一个文件/目录
+    h_find = FindFirstFileW(search_path, &find_data);
 
-    if (h_find == INVALID_HANDLE_VALUE) // 查找失败
+    if (h_find == INVALID_HANDLE_VALUE)
     {
-        // 如果不是因为文件未找到或路径未找到的错误，则打印警告
         if (GetLastError() != ERROR_FILE_NOT_FOUND && GetLastError() != ERROR_PATH_NOT_FOUND)
         {
             fwprintf(stderr, L"警告: 无法访问路径 '%s' (错误代码: %lu)。跳过。\n", current_path, GetLastError());
@@ -642,51 +642,36 @@ unsigned long long print_tree_recursive(const wchar_t *current_path, int level, 
         return 0;
     }
 
-    DirEntry *entries = NULL; // 用于存储当前目录下的所有条目
-    size_t entry_count = 0;   // 条目数量
-    size_t capacity = 0;      // entries 数组的容量
+    DirEntry *entries = NULL;
+    size_t entry_count = 0;
+    size_t capacity = 0;
 
     do
     {
-        // 跳过 "." 和 ".." 目录
         if (wcscmp(find_data.cFileName, L".") == 0 || wcscmp(find_data.cFileName, L"..") == 0)
         {
             continue;
         }
 
-        bool is_dir = (find_data.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) != 0; // 判断是否为目录
+        bool is_dir = (find_data.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) != 0;
 
-        // 根据选项过滤隐藏文件/目录
         if (!opts->show_hidden && (find_data.dwFileAttributes & FILE_ATTRIBUTE_HIDDEN))
         {
             continue;
         }
-        // 根据选项过滤系统文件 (非目录)
         if (!opts->show_hidden && (find_data.dwFileAttributes & FILE_ATTRIBUTE_SYSTEM) && !is_dir)
         {
-            // 如果是系统目录，即使不显示隐藏文件，也可能需要显示（取决于逻辑，此处仅过滤系统文件）
-            if (!(find_data.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY))
-                continue;
+            continue;
+        }
+        if (opts->exclude_pattern[0] != L'\0' && wildcard_match(find_data.cFileName, opts->exclude_pattern, opts->ignore_case_filter))
+        {
+            continue;
+        }
+        if (opts->include_pattern[0] != L'\0' && !wildcard_match(find_data.cFileName, opts->include_pattern, opts->ignore_case_filter))
+        {
+            continue;
         }
 
-        // 根据排除模式过滤
-        if (opts->exclude_pattern[0] != L'\0')
-        {
-            if (wildcard_match(find_data.cFileName, opts->exclude_pattern, opts->ignore_case_filter))
-            {
-                continue;
-            }
-        }
-        // 根据包含模式过滤 (如果指定了包含模式但文件名不匹配，则跳过)
-        if (opts->include_pattern[0] != L'\0')
-        {
-            if (!wildcard_match(find_data.cFileName, opts->include_pattern, opts->ignore_case_filter))
-            {
-                continue;
-            }
-        }
-
-        // 动态扩展 entries 数组
         if (entry_count >= capacity)
         {
             capacity = (capacity == 0) ? 16 : capacity * 2;
@@ -694,157 +679,141 @@ unsigned long long print_tree_recursive(const wchar_t *current_path, int level, 
             if (!new_entries)
             {
                 fwprintf(stderr, L"内存分配失败。\n");
-                if (entries)
-                    free(entries);
+                if (entries) free(entries);
                 FindClose(h_find);
-                return current_directory_total_size;
+                return 0;
             }
             entries = new_entries;
         }
 
-        // 存储条目信息
         wcscpy(entries[entry_count].name, find_data.cFileName);
         entries[entry_count].is_directory = is_dir;
         entries[entry_count].attributes = find_data.dwFileAttributes;
         if (is_dir)
         {
-            entries[entry_count].size = 0; // 目录大小将通过递归计算
+            entries[entry_count].size = 0; // 稍后计算
         }
         else
         {
             entries[entry_count].size = ((unsigned long long)find_data.nFileSizeHigh << 32) + find_data.nFileSizeLow;
+            current_directory_total_size += entries[entry_count].size;
         }
         entry_count++;
 
-    } while (FindNextFileW(h_find, &find_data) != 0); // 继续查找下一个文件/目录
+    } while (FindNextFileW(h_find, &find_data) != 0);
 
-    DWORD dwError = GetLastError(); // 获取 FindNextFileW 的最终错误状态
-    FindClose(h_find);              // 关闭查找句柄
+    DWORD dwError = GetLastError();
+    FindClose(h_find);
 
-    if (dwError != ERROR_NO_MORE_FILES) // 如果不是因为没有更多文件导致的错误
+    if (dwError != ERROR_NO_MORE_FILES)
     {
-        // 可以选择性地打印错误信息，但通常情况下，如果目录为空或权限问题，这里也会触发
         // fwprintf(stderr, L"读取目录 '%s' 时发生错误 (代码: %lu)。\n", current_path, dwError);
     }
 
-    // 对收集到的条目进行排序
     if (entry_count > 0)
     {
         qsort(entries, entry_count, sizeof(DirEntry), compare_dir_entries);
     }
-
-    HANDLE hConsole = NULL; // 控制台句柄，用于彩色输出
-    if (opts->use_color && opts->output_is_console)
-    {
-        hConsole = GetStdHandle(STD_OUTPUT_HANDLE);
+    
+    // 先计算所有子目录的大小
+    for (size_t i = 0; i < entry_count; ++i) {
+        if (entries[i].is_directory) {
+            wchar_t child_path[MAX_PATH_LEN];
+            swprintf(child_path, MAX_PATH_LEN, L"%s\\%s", current_path, entries[i].name);
+            
+            // 仅为计算大小而递归，不传递前缀
+            unsigned long long subdir_size = print_tree_recursive(child_path, level + 1, opts, counts, L""); 
+            entries[i].size = subdir_size;
+            current_directory_total_size += subdir_size;
+        }
     }
 
-    // 遍历排序后的条目
-    for (size_t i = 0; i < entry_count; ++i)
-    {
-        bool is_last_item_in_level = (i == entry_count - 1); // 判断是否为当前层级的最后一个条目
-        unsigned long long item_size = 0;                    // 当前条目的大小
-
-        if (entries[i].is_directory) // 如果是目录
+    // 如果 prefix_str 不为空，则表示这是一个递归调用，需要打印内容
+    if (wcslen(prefix_str) > 0 || level == 1) {
+        HANDLE hConsole = NULL;
+        if (opts->use_color && opts->output_is_console)
         {
-            counts->dir_count++; // 目录计数增加
-            wchar_t child_path[MAX_PATH_LEN];
-            // 构建子目录的完整路径
-            wcscpy(child_path, current_path);
-            if (child_path[wcslen(child_path) - 1] != L'\\' && child_path[wcslen(child_path) - 1] != L'/')
+            hConsole = GetStdHandle(STD_OUTPUT_HANDLE);
+        }
+
+        for (size_t i = 0; i < entry_count; ++i)
+        {
+            bool is_last_item_in_level = (i == entry_count - 1);
+
+            if (!entries[i].is_directory && !opts->list_files)
             {
-                wcscat(child_path, L"\\");
+                continue;
             }
-            wcscat(child_path, entries[i].name);
 
-            // 构建下一级递归的打印前缀
-            wchar_t next_prefix_str[MAX_PATH_LEN * 2]; // 前缀字符串可能较长
-            wcscpy(next_prefix_str, prefix_str);
-            const wchar_t *v_line_segment = opts->use_ascii ? L_VERT_ASCII : L_VERT;   // 选择普通或 ASCII 垂直线
-            wcscat(next_prefix_str, is_last_item_in_level ? L"    " : v_line_segment); // 如果是最后一个，则用空格，否则用垂直线
-            wcscat(next_prefix_str, L"   ");                                           // 添加额外的空格
-
-            // 递归调用处理子目录
-            item_size = print_tree_recursive(child_path, level + 1, opts, counts, next_prefix_str);
-            entries[i].size = item_size;               // 更新目录的大小为其内容总大小
-            current_directory_total_size += item_size; // 累加到当前目录的总大小
-        }
-        else // 如果是文件
-        {
-            if (opts->list_files)
-                counts->file_count++; // 如果显示文件，则文件计数增加
-            item_size = entries[i].size;
-            current_directory_total_size += item_size; // 累加文件大小到当前目录的总大小
-        }
-
-        // 判断是否应该打印当前条目
-        bool should_print_this_entry = true;
-        if (!entries[i].is_directory && !opts->list_files) // 如果是文件且不要求显示文件
-        {
-            should_print_this_entry = false;
-        }
-
-        if (should_print_this_entry)
-        {
-            // 打印前缀
             wprintf(L"%s", prefix_str);
 
-            // 打印连接线 (├─ 或 └─)
             const wchar_t *connector = is_last_item_in_level ? (opts->use_ascii ? L_UP_RIGHT_ASCII : L_UP_RIGHT)
                                                              : (opts->use_ascii ? L_VERT_RIGHT_ASCII : L_VERT_RIGHT);
             const wchar_t *h_line = opts->use_ascii ? L_HORZ_ASCII : L_HORZ;
             wprintf(L"%s%s%s ", connector, h_line, h_line);
 
-            // 如果需要显示属性
             if (opts->show_attributes)
             {
                 wchar_t attr_str[ATTR_STR_LEN];
                 get_attribute_string(entries[i].attributes, entries[i].is_directory, attr_str, ATTR_STR_LEN);
-                if (attr_str[0] != L'\0')
-                {
-                    wprintf(L"%-*s ", ATTR_STR_LEN - 1, attr_str); // 左对齐，宽度为 ATTR_STR_LEN-1
-                }
-                else
-                {
-                    wprintf(L"%-*s ", ATTR_STR_LEN - 1, L""); // 如果没有属性，打印等宽空格
-                }
+                wprintf(L"%-*s ", ATTR_STR_LEN - 1, attr_str[0] != L'\0' ? attr_str : L"");
             }
 
-            // 如果需要显示大小
             if (opts->show_size)
             {
                 wchar_t size_str[SIZE_STR_LEN];
-                if (opts->use_si_units) // SI 单位 (KB, MB)
+                if (opts->use_si_units)
                 {
                     format_file_size_si(entries[i].size, size_str, SIZE_STR_LEN);
                 }
-                else // 二进制单位 (KiB, MiB)
+                else
                 {
                     format_file_size_binary(entries[i].size, size_str, SIZE_STR_LEN);
                 }
-                wprintf(L"[%*s] ", SIZE_STR_LEN - 3, size_str); // 右对齐，宽度为 SIZE_STR_LEN-3 (减去 "[] " 的长度)
+                wprintf(L"[%*s] ", SIZE_STR_LEN - 3, size_str);
             }
 
-            // 设置颜色并打印名称
-            if (hConsole) // 如果启用了颜色且输出是控制台
+            if (hConsole)
             {
                 SetConsoleTextAttribute(hConsole, get_color_for_entry(&entries[i], opts));
             }
             wprintf(L"%s", entries[i].name);
-            if (hConsole) // 恢复默认颜色
+            if (hConsole)
             {
                 SetConsoleTextAttribute(hConsole, opts->saved_console_attributes);
             }
-            wprintf(L"\n"); // 换行
+            wprintf(L"\n");
+
+            if (entries[i].is_directory)
+            {
+                counts->dir_count++;
+                wchar_t next_prefix_str[MAX_PATH_LEN * 2];
+                wcscpy(next_prefix_str, prefix_str);
+                const wchar_t *v_line_segment = opts->use_ascii ? L_VERT_ASCII : L_VERT;
+                wcscat(next_prefix_str, is_last_item_in_level ? L"    " : v_line_segment);
+                wcscat(next_prefix_str, L"   ");
+
+                wchar_t child_path[MAX_PATH_LEN];
+                swprintf(child_path, MAX_PATH_LEN, L"%s\\%s", current_path, entries[i].name);
+                // 再次调用以打印子目录内容
+                print_tree_recursive(child_path, level + 1, opts, counts, next_prefix_str);
+            }
+            else
+            {
+                if(opts->list_files) counts->file_count++;
+            }
         }
     }
 
-    if (entries) // 释放动态分配的内存
+
+    if (entries)
     {
         free(entries);
     }
-    return current_directory_total_size; // 返回当前目录的总大小
+    return current_directory_total_size;
 }
+// FIX END
+
 
 // --- JSON 输出函数 ---
 // 递归构建 JSON 树
