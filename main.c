@@ -418,19 +418,11 @@ WORD get_color_for_entry(const DirEntry *entry, const TreeOptions *opts)
 void display_help(bool prefer_chinese)
 {
     const wchar_t **help_text = prefer_chinese ? help_text_zh_CN : help_text_en_US;
-#if defined(_WIN32) || defined(_WIN64)
-    UINT old_cp = GetConsoleOutputCP();   // 保存旧的控制台输出代码页
-    SetConsoleOutputCP(CP_UTF8);          // 设置控制台输出为 UTF-8
-    _setmode(_fileno(stdout), _O_U8TEXT); // 设置 stdout 为 UTF-8 文本模式
-#endif
-
+    // 不需要在此处设置代码页，因为 wmain 已经处理了
     for (int i = 0; help_text[i] != NULL; ++i)
     {
         wprintf(L"%s\n", help_text[i]);
     }
-#if defined(_WIN32) || defined(_WIN64)
-    SetConsoleOutputCP(old_cp); // 恢复旧的控制台输出代码页
-#endif
 }
 
 // --- JSON 和 XML 字符串转义 ---
@@ -609,7 +601,6 @@ int compare_dir_entries(const void *a, const void *b)
 }
 
 
-// FIX START: 修复了 print_tree_recursive 函数的逻辑
 // 递归打印树状结构 (文本模式)
 // 返回当前目录的总大小
 unsigned long long print_tree_recursive(const wchar_t *current_path, int level, TreeOptions *opts, Counts *counts, const wchar_t *prefix_str)
@@ -812,8 +803,6 @@ unsigned long long print_tree_recursive(const wchar_t *current_path, int level, 
     }
     return current_directory_total_size;
 }
-// FIX END
-
 
 // --- JSON 输出函数 ---
 // 递归构建 JSON 树
@@ -1345,9 +1334,14 @@ unsigned long long recursive_xml_builder(
 // --- 主函数与参数解析 ---
 int wmain(int argc, wchar_t *argv[])
 {
-#if defined(_WIN32) || defined(_WIN64)
+    // FIX START: 设置控制台输出编码为 UTF-8
+    // 保存原始控制台代码页，以便在程序退出时恢复
+    UINT original_console_cp = GetConsoleOutputCP();
+    SetConsoleOutputCP(CP_UTF8);
+    // 将 C 运行时的 stdout 和 stderr 文件流的转换模式设置为 UTF-8
+    _setmode(_fileno(stdout), _O_U8TEXT);
     _setmode(_fileno(stderr), _O_U8TEXT);
-#endif
+    // FIX END
 
     TreeOptions options;
     wcscpy(options.path_to_tree, L".");
@@ -1398,6 +1392,7 @@ int wmain(int argc, wchar_t *argv[])
             else
             {
                 fwprintf(stderr, L"错误: -L 选项需要一个层数参数。\n");
+                SetConsoleOutputCP(original_console_cp);
                 return 1;
             }
         }
@@ -1443,6 +1438,7 @@ int wmain(int argc, wchar_t *argv[])
             else
             {
                 fwprintf(stderr, L"错误: -o 选项需要一个文件名参数。\n");
+                SetConsoleOutputCP(original_console_cp);
                 return 1;
             }
         }
@@ -1464,6 +1460,7 @@ int wmain(int argc, wchar_t *argv[])
             else
             {
                 fwprintf(stderr, L"错误: --include 选项需要一个模式参数。\n");
+                SetConsoleOutputCP(original_console_cp);
                 return 1;
             }
         }
@@ -1477,6 +1474,7 @@ int wmain(int argc, wchar_t *argv[])
             else
             {
                 fwprintf(stderr, L"错误: --exclude 选项需要一个模式参数。\n");
+                SetConsoleOutputCP(original_console_cp);
                 return 1;
             }
         }
@@ -1496,6 +1494,7 @@ int wmain(int argc, wchar_t *argv[])
         {
             fwprintf(stderr, L"错误: 未知选项 '%s'\nError: Unknown option '%s'\n", argv[i], argv[i]);
             display_help(chinese_lang_preferred);
+            SetConsoleOutputCP(original_console_cp);
             return 1;
         }
         else
@@ -1521,19 +1520,17 @@ int wmain(int argc, wchar_t *argv[])
         if (output_stream_main == NULL)
         {
             fwprintf(stderr, L"错误: 无法打开输出文件 '%s'。\n", options.output_filename);
+            SetConsoleOutputCP(original_console_cp);
             return 1;
         }
         options.output_is_console = false;
         options.use_color = false;
     }
-    else
-    {
-        _setmode(_fileno(stdout), _O_U8TEXT);
-    }
-
+    
     if (help_requested)
     {
         display_help(chinese_lang_preferred);
+        SetConsoleOutputCP(original_console_cp);
         return 0;
     }
 
@@ -1542,15 +1539,11 @@ int wmain(int argc, wchar_t *argv[])
         options.show_size = true;
     }
 
-    // 移除了此处对 options.list_files 的强制设置
-    // if (options.output_format == OUTPUT_JSON || options.output_format == OUTPUT_XML) {
-    //    options.list_files = true;
-    // }
-
     wchar_t full_root_path[MAX_PATH_LEN];
     if (_wfullpath(full_root_path, options.path_to_tree, MAX_PATH_LEN) == NULL)
     {
         fwprintf(stderr, L"错误: 无法解析路径 '%s'。\n", options.path_to_tree);
+        SetConsoleOutputCP(original_console_cp);
         return 1;
     }
 
@@ -1558,6 +1551,7 @@ int wmain(int argc, wchar_t *argv[])
     if (dwAttrib == INVALID_FILE_ATTRIBUTES || !(dwAttrib & FILE_ATTRIBUTE_DIRECTORY))
     {
         fwprintf(stderr, L"错误: 路径 '%s' 无效或不是一个目录。\n", full_root_path);
+        SetConsoleOutputCP(original_console_cp);
         return 1;
     }
 
@@ -1566,16 +1560,10 @@ int wmain(int argc, wchar_t *argv[])
     switch (options.output_format)
     {
     case OUTPUT_JSON:
-        // JSON 根是一个数组，第一个元素是根目录对象。
-        // 根目录本身算一个目录，在 recursive_json_builder 中 level 1 时通过 global_counts->dir_count++ 添加。
-        // 这里传递的 counts.dir_count 初始为0。
-        counts.dir_count = 1; // 根目录本身是一个目录，先计数
+        counts.dir_count = 1; 
         generate_json_tree(full_root_path, &options, &counts, output_stream_main);
         break;
     case OUTPUT_XML:
-        // XML 根是 <tree>，其下第一个 <directory> 是根目录。
-        // 根目录计数在 recursive_xml_builder 中处理。
-        // generate_xml_tree 内部会重置并使用 global_counts。
         generate_xml_tree(full_root_path, &options, &counts, output_stream_main);
         break;
     case OUTPUT_TEXT:
@@ -1593,14 +1581,14 @@ int wmain(int argc, wchar_t *argv[])
             wprintf(L"%s\n", full_root_path);
         }
         wchar_t initial_prefix[MAX_PATH_LEN * 2] = L"";
-        counts.dir_count = 0; // 文本模式下，根目录已打印，计数从子目录开始
+        counts.dir_count = 0; 
         counts.file_count = 0;
         print_tree_recursive(full_root_path, 1, &options, &counts, initial_prefix);
         if (!options.no_report)
         {
-            wprintf(L"\n%lld 个目录", counts.dir_count); // 此处的 dir_count 不包含根目录本身
+            wprintf(L"\n%lld 个目录", counts.dir_count);
             if (options.list_files || options.output_format != OUTPUT_TEXT)
-            { // 确保文件计数被打印
+            {
                 wprintf(L", %lld 个文件", counts.file_count);
             }
             wprintf(L"\n");
@@ -1612,5 +1600,8 @@ int wmain(int argc, wchar_t *argv[])
     {
         fclose(output_stream_main);
     }
+
+    // FIX: 在程序退出前恢复原始控制台代码页
+    SetConsoleOutputCP(original_console_cp);
     return 0;
 }
