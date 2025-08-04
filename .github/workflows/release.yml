@@ -57,6 +57,9 @@ jobs:
     needs: build
     # 指定运行环境
     runs-on: windows-latest
+    # 新增：为 GITHUB_TOKEN 授予写权限以创建 Release 和上传附件
+    permissions:
+      contents: write
 
     steps:
       # 步骤一：下载构建产物
